@@ -19,7 +19,7 @@ async fn main() {
 
     println!("Waiting for Ctrl-C...");
     rx.recv().await.expect("Could not receive from channel.");
-    println!("");
+    println!(" ");
     println!("Got it! Exiting...");
 }
 

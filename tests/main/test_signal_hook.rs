@@ -8,8 +8,8 @@
 // according to those terms.
 
 use std::sync::{
-    atomic::{AtomicBool, Ordering},
     Arc,
+    atomic::{AtomicBool, Ordering},
 };
 
 pub fn run_signal_hook() {
@@ -17,9 +17,7 @@ pub fn run_signal_hook() {
 
     signal_hook::flag::register(signal_hook::consts::SIGINT, Arc::clone(&hook)).unwrap();
 
-    unsafe {
-        super::platform::raise_ctrl_c();
-    }
+    unsafe { super::platform::raise_ctrl_c() };
 
     std::thread::sleep(std::time::Duration::from_millis(100));
     assert!(hook.load(Ordering::SeqCst));

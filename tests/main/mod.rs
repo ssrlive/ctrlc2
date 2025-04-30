@@ -12,8 +12,8 @@ mod harness;
 use harness::{platform, run_harness};
 
 use std::sync::{
-    atomic::{AtomicBool, Ordering},
     Arc,
+    atomic::{AtomicBool, Ordering},
 };
 
 fn test_set_handler() {
@@ -25,9 +25,7 @@ fn test_set_handler() {
     })
     .unwrap();
 
-    unsafe {
-        platform::raise_ctrl_c();
-    }
+    unsafe { platform::raise_ctrl_c() };
 
     std::thread::sleep(std::time::Duration::from_millis(100));
     assert!(flag.load(Ordering::SeqCst));

@@ -7,7 +7,6 @@
 // notice may not be copied, modified, or distributed except
 // according to those terms.
 
-use ctrlc2;
 use std::sync::mpsc::channel;
 
 fn main() {

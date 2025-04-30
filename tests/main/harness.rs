@@ -34,16 +34,11 @@ pub mod platform {
 pub mod platform {
     use std::io;
     use std::ptr;
-    use windows_sys::Win32::Foundation::{
-        GENERIC_READ, GENERIC_WRITE, HANDLE, INVALID_HANDLE_VALUE,
-    };
-    use windows_sys::Win32::Storage::FileSystem::{
-        CreateFileA, WriteFile, FILE_SHARE_WRITE, OPEN_EXISTING,
-    };
+    use windows_sys::Win32::Foundation::{GENERIC_READ, GENERIC_WRITE, HANDLE, INVALID_HANDLE_VALUE};
+    use windows_sys::Win32::Storage::FileSystem::{CreateFileA, FILE_SHARE_WRITE, OPEN_EXISTING, WriteFile};
     use windows_sys::Win32::System::Console::{
-        AllocConsole, AttachConsole, FreeConsole, GenerateConsoleCtrlEvent, GetConsoleMode,
-        GetStdHandle, SetStdHandle, ATTACH_PARENT_PROCESS, CTRL_C_EVENT, STD_ERROR_HANDLE,
-        STD_OUTPUT_HANDLE,
+        ATTACH_PARENT_PROCESS, AllocConsole, AttachConsole, CTRL_C_EVENT, FreeConsole, GenerateConsoleCtrlEvent, GetConsoleMode,
+        GetStdHandle, STD_ERROR_HANDLE, STD_OUTPUT_HANDLE, SetStdHandle,
     };
 
     /// Stores a piped stdout handle or a cache that gets
@@ -58,21 +53,14 @@ pub mod platform {
     impl io::Write for Output {
         fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
             match *self {
-                Output::Pipe(handle) => unsafe {
+                Output::Pipe(handle) => {
                     let mut n = 0u32;
-                    if WriteFile(
-                        handle,
-                        buf.as_ptr(),
-                        buf.len() as u32,
-                        &mut n as *mut u32,
-                        ptr::null_mut(),
-                    ) == 0
-                    {
+                    if unsafe { WriteFile(handle, buf.as_ptr(), buf.len() as u32, &mut n as *mut u32, ptr::null_mut()) } == 0 {
                         Err(io::Error::last_os_error())
                     } else {
                         Ok(n as usize)
                     }
-                },
+                }
                 Output::Cached(ref mut s) => s.write(buf),
             }
         }
@@ -86,17 +74,15 @@ pub mod platform {
         /// Stores current piped stdout or creates a new output cache that will
         /// be written to stdout at a later time.
         fn new() -> io::Result<Output> {
-            unsafe {
-                let stdout = GetStdHandle(STD_OUTPUT_HANDLE);
-                if stdout.is_null() || stdout == INVALID_HANDLE_VALUE {
-                    return Err(io::Error::last_os_error());
-                }
+            let stdout = unsafe { GetStdHandle(STD_OUTPUT_HANDLE) };
+            if stdout.is_null() || stdout == INVALID_HANDLE_VALUE {
+                return Err(io::Error::last_os_error());
+            }
 
-                let mut out = 0u32;
-                match GetConsoleMode(stdout, &mut out as *mut u32) {
-                    0 => Ok(Output::Pipe(stdout)),
-                    _ => Ok(Output::Cached(Vec::new())),
-                }
+            let mut out = 0u32;
+            match unsafe { GetConsoleMode(stdout, &mut out as *mut u32) } {
+                0 => Ok(Output::Pipe(stdout)),
+                _ => Ok(Output::Cached(Vec::new())),
             }
         }
 
@@ -104,14 +90,14 @@ pub mod platform {
         unsafe fn set_as_std(self) -> io::Result<()> {
             let stdout = match self {
                 Output::Pipe(h) => h,
-                Output::Cached(_) => get_stdout()?,
+                Output::Cached(_) => unsafe { get_stdout() }?,
             };
 
-            if SetStdHandle(STD_OUTPUT_HANDLE, stdout) == 0 {
+            if unsafe { SetStdHandle(STD_OUTPUT_HANDLE, stdout) } == 0 {
                 return Err(io::Error::last_os_error());
             }
 
-            if SetStdHandle(STD_ERROR_HANDLE, stdout) == 0 {
+            if unsafe { SetStdHandle(STD_ERROR_HANDLE, stdout) } == 0 {
                 return Err(io::Error::last_os_error());
             }
 
@@ -129,15 +115,17 @@ pub mod platform {
     }
 
     unsafe fn get_stdout() -> io::Result<HANDLE> {
-        let stdout = CreateFileA(
-            "CONOUT$\0".as_ptr(),
-            GENERIC_READ | GENERIC_WRITE,
-            FILE_SHARE_WRITE,
-            ptr::null_mut(),
-            OPEN_EXISTING,
-            0,
-            0 as HANDLE,
-        );
+        let stdout = unsafe {
+            CreateFileA(
+                c"CONOUT$".as_ptr() as *const u8,
+                GENERIC_READ | GENERIC_WRITE,
+                FILE_SHARE_WRITE,
+                ptr::null_mut(),
+                OPEN_EXISTING,
+                0,
+                0 as HANDLE,
+            )
+        };
 
         if stdout.is_null() || stdout == INVALID_HANDLE_VALUE {
             Err(io::Error::last_os_error())
@@ -157,49 +145,49 @@ pub mod platform {
     pub unsafe fn setup() -> io::Result<()> {
         let old_out = Output::new()?;
 
-        if FreeConsole() == 0 {
+        if unsafe { FreeConsole() } == 0 {
             return Err(io::Error::last_os_error());
         }
 
-        if AllocConsole() == 0 {
+        if unsafe { AllocConsole() } == 0 {
             return Err(io::Error::last_os_error());
         }
 
         // AllocConsole will not always set stdout/stderr to the to the console buffer
         // of the new terminal.
 
-        let stdout = get_stdout()?;
-        if SetStdHandle(STD_OUTPUT_HANDLE, stdout) == 0 {
+        let stdout = unsafe { get_stdout() }?;
+        if unsafe { SetStdHandle(STD_OUTPUT_HANDLE, stdout) } == 0 {
             return Err(io::Error::last_os_error());
         }
 
-        if SetStdHandle(STD_ERROR_HANDLE, stdout) == 0 {
+        if unsafe { SetStdHandle(STD_ERROR_HANDLE, stdout) } == 0 {
             return Err(io::Error::last_os_error());
         }
 
-        OLD_OUT = Box::into_raw(Box::new(old_out));
+        unsafe { OLD_OUT = Box::into_raw(Box::new(old_out)) };
 
         Ok(())
     }
 
     /// Reattach to the old console.
     pub unsafe fn cleanup() -> io::Result<()> {
-        if FreeConsole() == 0 {
+        if unsafe { FreeConsole() } == 0 {
             return Err(io::Error::last_os_error());
         }
 
-        if AttachConsole(ATTACH_PARENT_PROCESS) == 0 {
+        if unsafe { AttachConsole(ATTACH_PARENT_PROCESS) } == 0 {
             return Err(io::Error::last_os_error());
         }
 
-        Box::from_raw(OLD_OUT).set_as_std()?;
+        unsafe { Box::from_raw(OLD_OUT).set_as_std() }?;
 
         Ok(())
     }
 
     /// This will signal the whole process group.
     pub unsafe fn raise_ctrl_c() {
-        assert!(GenerateConsoleCtrlEvent(CTRL_C_EVENT, 0) != 0);
+        assert!(unsafe { GenerateConsoleCtrlEvent(CTRL_C_EVENT, 0) } != 0);
     }
 
     /// Print to both consoles, this is not thread safe.
@@ -210,8 +198,8 @@ pub mod platform {
             stdout.lock().write_fmt(fmt).unwrap();
         }
         {
-            assert!(!OLD_OUT.is_null());
-            (*OLD_OUT).write_fmt(fmt).unwrap();
+            assert!(!unsafe { OLD_OUT.is_null() });
+            unsafe { (*OLD_OUT).write_fmt(fmt) }.unwrap();
         }
     }
 }
@@ -229,23 +217,17 @@ macro_rules! run_tests {
 }
 
 pub fn run_harness(f: fn()) {
-    unsafe {
-        platform::setup().unwrap();
-    }
+    unsafe { platform::setup() }.unwrap();
 
     let default = std::panic::take_hook();
     std::panic::set_hook(Box::new(move |info| {
-        unsafe {
-            platform::cleanup().unwrap();
-        }
+        unsafe { platform::cleanup() }.unwrap();
         (default)(info);
     }));
 
-    println!("");
+    println!(" ");
     f();
-    println!("");
+    println!(" ");
 
-    unsafe {
-        platform::cleanup().unwrap();
-    }
+    unsafe { platform::cleanup() }.unwrap();
 }

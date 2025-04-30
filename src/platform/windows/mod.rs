@@ -9,11 +9,9 @@
 
 use std::io;
 use std::ptr;
-use windows_sys::Win32::Foundation::{CloseHandle, BOOL, HANDLE, WAIT_FAILED, WAIT_OBJECT_0};
+use windows_sys::Win32::Foundation::{BOOL, CloseHandle, HANDLE, WAIT_FAILED, WAIT_OBJECT_0};
 use windows_sys::Win32::System::Console::SetConsoleCtrlHandler;
-use windows_sys::Win32::System::Threading::{
-    CreateSemaphoreA, ReleaseSemaphore, WaitForSingleObject, INFINITE,
-};
+use windows_sys::Win32::System::Threading::{CreateSemaphoreA, INFINITE, ReleaseSemaphore, WaitForSingleObject};
 
 /// Platform specific error type
 pub type Error = io::Error;
@@ -28,7 +26,7 @@ const FALSE: BOOL = 0;
 
 unsafe extern "system" fn os_handler(_: u32) -> BOOL {
     // Assuming this always succeeds. Can't really handle errors in any meaningful way.
-    ReleaseSemaphore(SEMAPHORE, 1, ptr::null_mut());
+    unsafe { ReleaseSemaphore(SEMAPHORE, 1, ptr::null_mut()) };
     TRUE
 }
 
@@ -42,15 +40,15 @@ unsafe extern "system" fn os_handler(_: u32) -> BOOL {
 ///
 #[inline]
 pub unsafe fn init_os_handler(_overwrite: bool) -> Result<(), Error> {
-    SEMAPHORE = CreateSemaphoreA(ptr::null_mut(), 0, MAX_SEM_COUNT, ptr::null());
-    if SEMAPHORE.is_null() {
+    unsafe { SEMAPHORE = CreateSemaphoreA(ptr::null_mut(), 0, MAX_SEM_COUNT, ptr::null()) };
+    if unsafe { SEMAPHORE.is_null() } {
         return Err(io::Error::last_os_error());
     }
 
-    if SetConsoleCtrlHandler(Some(os_handler), TRUE) == FALSE {
+    if unsafe { SetConsoleCtrlHandler(Some(os_handler), TRUE) } == FALSE {
         let e = io::Error::last_os_error();
-        CloseHandle(SEMAPHORE);
-        SEMAPHORE = 0 as HANDLE;
+        unsafe { CloseHandle(SEMAPHORE) };
+        unsafe { SEMAPHORE = 0 as HANDLE };
         return Err(e);
     }
 
@@ -66,15 +64,12 @@ pub unsafe fn init_os_handler(_overwrite: bool) -> Result<(), Error> {
 ///
 #[inline]
 pub unsafe fn block_ctrl_c() -> Result<(), Error> {
-    match WaitForSingleObject(SEMAPHORE, INFINITE) {
+    match unsafe { WaitForSingleObject(SEMAPHORE, INFINITE) } {
         WAIT_OBJECT_0 => Ok(()),
         WAIT_FAILED => Err(io::Error::last_os_error()),
         ret => Err(io::Error::new(
             io::ErrorKind::Other,
-            format!(
-                "WaitForSingleObject(), unexpected return value \"{:x}\"",
-                ret
-            ),
+            format!("WaitForSingleObject(), unexpected return value \"{:x}\"", ret),
         )),
     }
 }

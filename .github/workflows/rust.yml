@@ -12,6 +12,7 @@ env:
 jobs:
   build:
     strategy:
+      fail-fast: false
       matrix:
         host_os:
           - ubuntu-latest
@@ -21,14 +22,25 @@ jobs:
     runs-on: ${{ matrix.host_os }}
 
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
+
+    - uses: dtolnay/rust-toolchain@stable
+
     - name: check
+      if: ${{ !cancelled() }}
       run: cargo check
     - name: rustfmt
+      if: ${{ !cancelled() }}
       run: cargo fmt --all -- --check
     - name: clippy
-      run: cargo clippy -- -D warnings
+      if: ${{ !cancelled() }}
+      run: cargo clippy --all-targets --all-features -- -D warnings
     - name: Build
+      if: ${{ !cancelled() }}
       run: cargo build --verbose --all-features --tests --examples
     - name: Run tests
-      run: cargo test --verbose
+      if: ${{ !cancelled() }}
+      run: cargo test --verbose --all-targets --all-features
+    - name: Abort on error
+      if: ${{ failure() }}
+      run: echo "Some of jobs failed" && false

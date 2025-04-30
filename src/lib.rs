@@ -57,8 +57,8 @@ mod signal;
 pub use signal::*;
 
 pub use error::Error;
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Mutex;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::thread::{self, JoinHandle};
 
 static INIT: AtomicBool = AtomicBool::new(false);
@@ -136,12 +136,13 @@ where
 
     let builder = thread::Builder::new()
         .name("ctrl-c".into())
-        .spawn(move || loop {
-            unsafe {
-                platform::block_ctrl_c().expect("Critical system error while waiting for Ctrl-C");
-            }
-            if user_handler() {
-                break;
+        .spawn(move || {
+            loop {
+                unsafe { platform::block_ctrl_c() }.expect("Critical system error while waiting for Ctrl-C");
+
+                if user_handler() {
+                    break;
+                }
             }
         })
         .map_err(Error::System)?;
@@ -164,7 +165,7 @@ where
 
                 #[cfg(feature = "termination")]
                 {
-                    use tokio::signal::unix::{signal, SignalKind};
+                    use tokio::signal::unix::{SignalKind, signal};
                     let mut kill_signal = signal(SignalKind::terminate())?;
                     let mut int_signal = signal(SignalKind::interrupt())?;
                     let mut hup_signal = signal(SignalKind::hangup())?;
