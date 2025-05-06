@@ -7,13 +7,10 @@
 // notice may not be copied, modified, or distributed except
 // according to those terms.
 
-use crate::error::Error as CtrlcError;
 use nix::unistd;
-use std::os::fd::BorrowedFd;
-use std::os::fd::IntoRawFd;
-use std::os::unix::io::RawFd;
+use std::os::fd::OwnedFd;
 
-static mut PIPE: (RawFd, RawFd) = (-1, -1);
+static PIPE: std::sync::OnceLock<(OwnedFd, OwnedFd)> = std::sync::OnceLock::new();
 
 /// Platform specific error type
 pub type Error = nix::Error;
@@ -24,33 +21,31 @@ pub type Signal = nix::sys::signal::Signal;
 extern "C" fn os_handler(_: nix::libc::c_int) {
     // Assuming this always succeeds. Can't really handle errors in any meaningful way.
 
-    let fd = unsafe { BorrowedFd::borrow_raw(PIPE.1) };
-    let _ = unistd::write(fd, &[0u8]);
+    if let Some((_, fd1)) = PIPE.get() {
+        let _ = unistd::write(fd1, &[0u8]);
+    }
 }
 
 // pipe2(2) is not available on macOS, iOS, AIX, Haiku, etc., so we need to use pipe(2) and fcntl(2)
 #[inline]
 #[cfg(any(target_vendor = "apple", target_os = "haiku", target_os = "aix", target_os = "nto",))]
-fn pipe2(flags: nix::fcntl::OFlag) -> nix::Result<(RawFd, RawFd)> {
+fn pipe2(flags: nix::fcntl::OFlag) -> nix::Result<(OwnedFd, OwnedFd)> {
     use nix::fcntl::{FcntlArg, FdFlag, OFlag, fcntl};
 
     let pipe = unistd::pipe()?;
-    let pipe = (pipe.0.into_raw_fd(), pipe.1.into_raw_fd());
 
     let mut res = Ok(0);
 
-    let fd0 = unsafe { BorrowedFd::borrow_raw(pipe.0) };
-    let fd1 = unsafe { BorrowedFd::borrow_raw(pipe.1) };
     if flags.contains(OFlag::O_CLOEXEC) {
         res = res
-            .and_then(|_| fcntl(fd0, FcntlArg::F_SETFD(FdFlag::FD_CLOEXEC)))
-            .and_then(|_| fcntl(fd1, FcntlArg::F_SETFD(FdFlag::FD_CLOEXEC)));
+            .and_then(|_| fcntl(&pipe.0, FcntlArg::F_SETFD(FdFlag::FD_CLOEXEC)))
+            .and_then(|_| fcntl(&pipe.1, FcntlArg::F_SETFD(FdFlag::FD_CLOEXEC)));
     }
 
     if flags.contains(OFlag::O_NONBLOCK) {
         res = res
-            .and_then(|_| fcntl(fd0, FcntlArg::F_SETFL(OFlag::O_NONBLOCK)))
-            .and_then(|_| fcntl(fd1, FcntlArg::F_SETFL(OFlag::O_NONBLOCK)));
+            .and_then(|_| fcntl(&pipe.0, FcntlArg::F_SETFL(OFlag::O_NONBLOCK)))
+            .and_then(|_| fcntl(&pipe.1, FcntlArg::F_SETFL(OFlag::O_NONBLOCK)));
     }
 
     match res {
@@ -65,9 +60,8 @@ fn pipe2(flags: nix::fcntl::OFlag) -> nix::Result<(RawFd, RawFd)> {
 
 #[inline]
 #[cfg(not(any(target_vendor = "apple", target_os = "haiku", target_os = "aix", target_os = "nto",)))]
-fn pipe2(flags: nix::fcntl::OFlag) -> nix::Result<(RawFd, RawFd)> {
-    let pipe = unistd::pipe2(flags)?;
-    Ok((pipe.0.into_raw_fd(), pipe.1.into_raw_fd()))
+fn pipe2(flags: nix::fcntl::OFlag) -> nix::Result<(OwnedFd, OwnedFd)> {
+    unistd::pipe2(flags)
 }
 
 /// Register os signal handler.
@@ -79,25 +73,14 @@ fn pipe2(flags: nix::fcntl::OFlag) -> nix::Result<(RawFd, RawFd)> {
 /// Will return an error if a system error occurred.
 ///
 #[inline]
-pub unsafe fn init_os_handler(overwrite: bool) -> Result<(), Error> {
+pub unsafe fn init_os_handler(overwrite: bool) -> Result<(), nix::Error> {
     use nix::fcntl;
     use nix::sys::signal;
 
-    unsafe { PIPE = pipe2(fcntl::OFlag::O_CLOEXEC)? };
-
-    let close_pipe = |e: nix::Error| -> Error {
-        // Try to close the pipes. close() should not fail,
-        // but if it does, there isn't much we can do
-        let _ = unistd::close(unsafe { PIPE.1 });
-        let _ = unistd::close(unsafe { PIPE.0 });
-        e
-    };
+    let pipe = PIPE.get_or_init(|| pipe2(fcntl::OFlag::O_CLOEXEC).unwrap());
 
     // Make sure we never block on write in the os handler.
-    let fd = unsafe { BorrowedFd::borrow_raw(PIPE.1) };
-    if let Err(e) = fcntl::fcntl(fd, fcntl::FcntlArg::F_SETFL(fcntl::OFlag::O_NONBLOCK)) {
-        return Err(close_pipe(e));
-    }
+    fcntl::fcntl(&pipe.1, fcntl::FcntlArg::F_SETFL(fcntl::OFlag::O_NONBLOCK))?;
 
     let handler = signal::SigHandler::Handler(os_handler);
     #[cfg(not(target_os = "nto"))]
@@ -106,13 +89,10 @@ pub unsafe fn init_os_handler(overwrite: bool) -> Result<(), Error> {
     #[cfg(target_os = "nto")]
     let new_action = signal::SigAction::new(handler, signal::SaFlags::empty(), signal::SigSet::empty());
 
-    let sigint_old = match unsafe { signal::sigaction(signal::Signal::SIGINT, &new_action) } {
-        Ok(old) => old,
-        Err(e) => return Err(close_pipe(e)),
-    };
+    let sigint_old = unsafe { signal::sigaction(signal::Signal::SIGINT, &new_action) }?;
     if !overwrite && sigint_old.handler() != signal::SigHandler::SigDfl {
         unsafe { signal::sigaction(signal::Signal::SIGINT, &sigint_old) }.unwrap();
-        return Err(close_pipe(nix::Error::EEXIST));
+        return Err(nix::Error::EEXIST);
     }
 
     #[cfg(feature = "termination")]
@@ -121,27 +101,27 @@ pub unsafe fn init_os_handler(overwrite: bool) -> Result<(), Error> {
             Ok(old) => old,
             Err(e) => {
                 unsafe { signal::sigaction(signal::Signal::SIGINT, &sigint_old).unwrap() };
-                return Err(close_pipe(e));
+                return Err(e);
             }
         };
         if !overwrite && sigterm_old.handler() != signal::SigHandler::SigDfl {
             unsafe { signal::sigaction(signal::Signal::SIGINT, &sigint_old).unwrap() };
             unsafe { signal::sigaction(signal::Signal::SIGTERM, &sigterm_old).unwrap() };
-            return Err(close_pipe(nix::Error::EEXIST));
+            return Err(nix::Error::EEXIST);
         }
         let sighup_old = match unsafe { signal::sigaction(signal::Signal::SIGHUP, &new_action) } {
             Ok(old) => old,
             Err(e) => {
                 unsafe { signal::sigaction(signal::Signal::SIGINT, &sigint_old).unwrap() };
                 unsafe { signal::sigaction(signal::Signal::SIGTERM, &sigterm_old).unwrap() };
-                return Err(close_pipe(e));
+                return Err(e);
             }
         };
         if !overwrite && sighup_old.handler() != signal::SigHandler::SigDfl {
             unsafe { signal::sigaction(signal::Signal::SIGINT, &sigint_old).unwrap() };
             unsafe { signal::sigaction(signal::Signal::SIGTERM, &sigterm_old).unwrap() };
             unsafe { signal::sigaction(signal::Signal::SIGHUP, &sighup_old).unwrap() };
-            return Err(close_pipe(nix::Error::EEXIST));
+            return Err(nix::Error::EEXIST);
         }
     }
 
@@ -156,17 +136,19 @@ pub unsafe fn init_os_handler(overwrite: bool) -> Result<(), Error> {
 /// Will return an error if a system error occurred.
 ///
 #[inline]
-pub unsafe fn block_ctrl_c() -> Result<(), CtrlcError> {
+pub unsafe fn block_ctrl_c() -> Result<(), crate::Error> {
     use std::io;
     let mut buf = [0u8];
+
+    let (fd0, _) = PIPE.get().expect("PIPE not initialized");
 
     // TODO: Can we safely convert the pipe fd into a std::io::Read
     // with std::os::unix::io::FromRawFd, this would handle EINTR
     // and everything for us.
     loop {
-        match unistd::read(unsafe { BorrowedFd::borrow_raw(PIPE.0) }, &mut buf[..]) {
+        match unistd::read(fd0, &mut buf[..]) {
             Ok(1) => break,
-            Ok(_) => return Err(CtrlcError::System(io::ErrorKind::UnexpectedEof.into())),
+            Ok(_) => return Err(crate::Error::System(io::ErrorKind::UnexpectedEof.into())),
             Err(nix::errno::Errno::EINTR) => {}
             Err(e) => return Err(e.into()),
         }
