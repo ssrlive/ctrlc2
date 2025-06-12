@@ -26,7 +26,7 @@ impl From<Error> for std::io::Error {
     fn from(e: Error) -> std::io::Error {
         match e {
             Error::System(e) => e,
-            _ => std::io::Error::new(std::io::ErrorKind::Other, e),
+            _ => std::io::Error::other(e),
         }
     }
 }
@@ -38,7 +38,7 @@ impl From<platform::Error> for Error {
             return Error::MultipleHandlers;
         }
 
-        let system_error = std::io::Error::new(std::io::ErrorKind::Other, e);
+        let system_error = std::io::Error::other(e);
         Error::System(system_error)
     }
 }
