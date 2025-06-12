@@ -27,9 +27,6 @@ tokio = { version = "1", features = [
     "signal",
 ], optional = true }
 
-[dev-dependencies]
-signal-hook = "0.3"
-
 [target.'cfg(unix)'.dependencies]
 nix = { version = "0.30", default-features = false, features = [
     "fs",
@@ -43,6 +40,9 @@ windows-sys = { version = "0.60", features = [
     "Win32_Security",
     "Win32_System_Console",
 ] }
+
+[dev-dependencies]
+signal-hook = "0.3"
 
 [target.'cfg(windows)'.dev-dependencies]
 windows-sys = { version = "0.60", features = [
