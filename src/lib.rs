@@ -55,6 +55,10 @@ mod platform;
 pub use platform::Signal;
 mod signal;
 pub use signal::*;
+#[cfg(feature = "async")]
+mod r#async;
+#[cfg(feature = "async")]
+pub use r#async::AsyncCtrlC;
 
 pub use error::Error;
 use std::sync::Mutex;

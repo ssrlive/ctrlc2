@@ -13,11 +13,15 @@ exclude = ["/.travis.yml", "/appveyor.yml"]
 edition = "2024"
 readme = "README.md"
 
+[package.metadata.docs.rs]
+all-features = true
+
 [features]
 termination = []
 tokio = ["dep:tokio"]
+async = []
 
-# default = ["termination", "tokio"]
+# default = ["termination", "tokio", "async"]
 
 [dependencies]
 tokio = { version = "1", features = [
@@ -42,6 +46,8 @@ windows-sys = { version = "0.60", features = [
 ] }
 
 [dev-dependencies]
+clap = { version = "4", features = ["derive"] }
+futures = "0.3"
 signal-hook = "0.3"
 
 [target.'cfg(windows)'.dev-dependencies]

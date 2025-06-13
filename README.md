@@ -66,6 +66,24 @@ async fn main() {
 }
 ```
 
+or using the `async` feature, it even more simple:
+
+```rust
+#[cfg(all(feature = "async", feature = "tokio"))]
+#[tokio::main(flavor = "current_thread")]
+async fn main() {
+    let ctrlc = ctrlc2::AsyncCtrlC::new(move || {
+        println!("Ctrl-C received!");
+        true
+    })
+    .expect("cannot create Ctrl+C handler");
+
+    println!("Waiting for Ctrl-C...");
+    ctrlc.await;
+    println!("Got it! Exiting...");
+}
+```
+
 #### Try the example yourself
 `cargo build --examples && target/debug/examples/readme_example`
 
