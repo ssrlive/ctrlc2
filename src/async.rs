@@ -47,8 +47,8 @@ impl AsyncCtrlC {
         let waker: Arc<Mutex<Option<Waker>>> = Arc::new(Mutex::new(None));
         let active = Arc::new(AtomicBool::new(false));
 
-        let waker_clone = Arc::clone(&waker);
-        let active_clone = Arc::clone(&active);
+        let waker_clone = waker.clone();
+        let active_clone = active.clone();
 
         set_handler(move || {
             let handled = user_handler();

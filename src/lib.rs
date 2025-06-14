@@ -63,7 +63,6 @@ pub use r#async::AsyncCtrlC;
 pub use error::Error;
 use std::sync::Mutex;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::thread::{self, JoinHandle};
 
 static INIT: AtomicBool = AtomicBool::new(false);
 static INIT_LOCK: Mutex<()> = Mutex::new(());
@@ -96,7 +95,7 @@ static INIT_LOCK: Mutex<()> = Mutex::new(());
 ///
 /// # Panics
 /// Any panic in the handler will not be caught and will cause the signal handler thread to stop.
-pub fn set_handler<F>(user_handler: F) -> Result<JoinHandle<()>, Error>
+pub fn set_handler<F>(user_handler: F) -> Result<std::thread::JoinHandle<()>, Error>
 where
     F: FnMut() -> bool + 'static + Send,
 {
@@ -108,14 +107,14 @@ where
 /// # Errors
 /// Will return an error if another handler exists or if a system error occurred while setting the
 /// handler.
-pub fn try_set_handler<F>(user_handler: F) -> Result<JoinHandle<()>, Error>
+pub fn try_set_handler<F>(user_handler: F) -> Result<std::thread::JoinHandle<()>, Error>
 where
     F: FnMut() -> bool + 'static + Send,
 {
     init_and_set_handler(user_handler, false)
 }
 
-fn init_and_set_handler<F>(user_handler: F, overwrite: bool) -> Result<JoinHandle<()>, Error>
+fn init_and_set_handler<F>(user_handler: F, overwrite: bool) -> Result<std::thread::JoinHandle<()>, Error>
 where
     F: FnMut() -> bool + 'static + Send,
 {
@@ -132,13 +131,13 @@ where
     Err(Error::MultipleHandlers)
 }
 
-fn set_handler_inner<F>(mut user_handler: F, overwrite: bool) -> Result<JoinHandle<()>, Error>
+fn set_handler_inner<F>(mut user_handler: F, overwrite: bool) -> Result<std::thread::JoinHandle<()>, Error>
 where
     F: FnMut() -> bool + 'static + Send,
 {
     unsafe { platform::init_os_handler(overwrite)? };
 
-    let builder = thread::Builder::new()
+    let builder = std::thread::Builder::new()
         .name("ctrl-c".into())
         .spawn(move || {
             loop {

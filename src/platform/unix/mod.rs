@@ -22,7 +22,9 @@ extern "C" fn os_handler(_: nix::libc::c_int) {
     // Assuming this always succeeds. Can't really handle errors in any meaningful way.
 
     if let Some((_, fd1)) = PIPE.get() {
-        let _ = unistd::write(fd1, &[0u8]);
+        if let Err(e) = unistd::write(fd1, &[0u8]) {
+            log::error!("Failed to write to pipe in os_handler: {e}");
+        }
     }
 }
 
@@ -34,28 +36,17 @@ fn pipe2(flags: nix::fcntl::OFlag) -> nix::Result<(OwnedFd, OwnedFd)> {
 
     let pipe = unistd::pipe()?;
 
-    let mut res = Ok(0);
-
     if flags.contains(OFlag::O_CLOEXEC) {
-        res = res
-            .and_then(|_| fcntl(&pipe.0, FcntlArg::F_SETFD(FdFlag::FD_CLOEXEC)))
-            .and_then(|_| fcntl(&pipe.1, FcntlArg::F_SETFD(FdFlag::FD_CLOEXEC)));
+        fcntl(&pipe.0, FcntlArg::F_SETFD(FdFlag::FD_CLOEXEC))?;
+        fcntl(&pipe.1, FcntlArg::F_SETFD(FdFlag::FD_CLOEXEC))?;
     }
 
     if flags.contains(OFlag::O_NONBLOCK) {
-        res = res
-            .and_then(|_| fcntl(&pipe.0, FcntlArg::F_SETFL(OFlag::O_NONBLOCK)))
-            .and_then(|_| fcntl(&pipe.1, FcntlArg::F_SETFL(OFlag::O_NONBLOCK)));
+        fcntl(&pipe.0, FcntlArg::F_SETFL(OFlag::O_NONBLOCK))?;
+        fcntl(&pipe.1, FcntlArg::F_SETFL(OFlag::O_NONBLOCK))?;
     }
 
-    match res {
-        Ok(_) => Ok(pipe),
-        Err(e) => {
-            let _ = unistd::close(pipe.0);
-            let _ = unistd::close(pipe.1);
-            Err(e)
-        }
-    }
+    Ok(pipe)
 }
 
 #[inline]
@@ -77,7 +68,7 @@ pub unsafe fn init_os_handler(overwrite: bool) -> Result<(), nix::Error> {
     use nix::fcntl;
     use nix::sys::signal;
 
-    let pipe = PIPE.get_or_init(|| pipe2(fcntl::OFlag::O_CLOEXEC).unwrap());
+    let pipe = PIPE.get_or_init(|| pipe2(fcntl::OFlag::O_CLOEXEC).expect("pipe2 failed"));
 
     // Make sure we never block on write in the os handler.
     fcntl::fcntl(&pipe.1, fcntl::FcntlArg::F_SETFL(fcntl::OFlag::O_NONBLOCK))?;
@@ -91,7 +82,9 @@ pub unsafe fn init_os_handler(overwrite: bool) -> Result<(), nix::Error> {
 
     let sigint_old = unsafe { signal::sigaction(signal::Signal::SIGINT, &new_action) }?;
     if !overwrite && sigint_old.handler() != signal::SigHandler::SigDfl {
-        unsafe { signal::sigaction(signal::Signal::SIGINT, &sigint_old) }.unwrap();
+        if let Err(err) = unsafe { signal::sigaction(signal::Signal::SIGINT, &sigint_old) } {
+            log::error!("Failed to restore SIGINT handler: {err}");
+        }
         return Err(nix::Error::EEXIST);
     }
 
@@ -100,27 +93,43 @@ pub unsafe fn init_os_handler(overwrite: bool) -> Result<(), nix::Error> {
         let sigterm_old = match unsafe { signal::sigaction(signal::Signal::SIGTERM, &new_action) } {
             Ok(old) => old,
             Err(e) => {
-                unsafe { signal::sigaction(signal::Signal::SIGINT, &sigint_old).unwrap() };
+                if let Err(err) = unsafe { signal::sigaction(signal::Signal::SIGINT, &sigint_old) } {
+                    log::error!("Failed to restore SIGINT handler: {err}");
+                }
                 return Err(e);
             }
         };
         if !overwrite && sigterm_old.handler() != signal::SigHandler::SigDfl {
-            unsafe { signal::sigaction(signal::Signal::SIGINT, &sigint_old).unwrap() };
-            unsafe { signal::sigaction(signal::Signal::SIGTERM, &sigterm_old).unwrap() };
+            if let Err(err) = unsafe { signal::sigaction(signal::Signal::SIGINT, &sigint_old) } {
+                log::error!("Failed to restore SIGINT handler: {err}");
+            }
+            if let Err(err) = unsafe { signal::sigaction(signal::Signal::SIGTERM, &sigterm_old) } {
+                log::error!("Failed to restore SIGTERM handler: {err}");
+            }
             return Err(nix::Error::EEXIST);
         }
         let sighup_old = match unsafe { signal::sigaction(signal::Signal::SIGHUP, &new_action) } {
             Ok(old) => old,
             Err(e) => {
-                unsafe { signal::sigaction(signal::Signal::SIGINT, &sigint_old).unwrap() };
-                unsafe { signal::sigaction(signal::Signal::SIGTERM, &sigterm_old).unwrap() };
+                if let Err(err) = unsafe { signal::sigaction(signal::Signal::SIGINT, &sigint_old) } {
+                    log::error!("Failed to restore SIGINT handler: {err}");
+                }
+                if let Err(err) = unsafe { signal::sigaction(signal::Signal::SIGTERM, &sigterm_old) } {
+                    log::error!("Failed to restore SIGTERM handler: {err}");
+                }
                 return Err(e);
             }
         };
         if !overwrite && sighup_old.handler() != signal::SigHandler::SigDfl {
-            unsafe { signal::sigaction(signal::Signal::SIGINT, &sigint_old).unwrap() };
-            unsafe { signal::sigaction(signal::Signal::SIGTERM, &sigterm_old).unwrap() };
-            unsafe { signal::sigaction(signal::Signal::SIGHUP, &sighup_old).unwrap() };
+            if let Err(err) = unsafe { signal::sigaction(signal::Signal::SIGINT, &sigint_old) } {
+                log::error!("Failed to restore SIGINT handler: {err}");
+            }
+            if let Err(err) = unsafe { signal::sigaction(signal::Signal::SIGTERM, &sigterm_old) } {
+                log::error!("Failed to restore SIGTERM handler: {err}");
+            }
+            if let Err(err) = unsafe { signal::sigaction(signal::Signal::SIGHUP, &sighup_old) } {
+                log::error!("Failed to restore SIGHUP handler: {err}");
+            }
             return Err(nix::Error::EEXIST);
         }
     }
@@ -140,7 +149,7 @@ pub unsafe fn block_ctrl_c() -> Result<(), crate::Error> {
     use std::io;
     let mut buf = [0u8];
 
-    let (fd0, _) = PIPE.get().expect("PIPE not initialized");
+    let (fd0, _) = PIPE.get().ok_or(crate::Error::System(io::Error::other("PIPE not initialized")))?;
 
     // TODO: Can we safely convert the pipe fd into a std::io::Read
     // with std::os::unix::io::FromRawFd, this would handle EINTR
