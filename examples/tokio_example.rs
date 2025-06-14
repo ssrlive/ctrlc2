@@ -12,6 +12,7 @@
 async fn main() {
     let (tx, mut rx) = tokio::sync::mpsc::channel::<()>(1);
 
+    #[allow(deprecated)]
     ctrlc2::set_async_handler(async move {
         tx.send(()).await.expect("ctrlc2 send signal failed");
     })

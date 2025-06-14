@@ -156,6 +156,10 @@ where
 
 /// Register signal handler in tokio runtime for Ctrl-C.
 #[cfg(feature = "tokio")]
+#[deprecated(
+    since = "3.6.4",
+    note = "Use 'async' feature instead. The 'tokio' feature is deprecated and will be removed in the future."
+)]
 pub async fn set_async_handler<F>(user_handler: F) -> tokio::task::JoinHandle<()>
 where
     F: std::future::Future<Output = ()> + 'static + Send,
