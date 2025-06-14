@@ -17,12 +17,12 @@ pub struct AsyncCtrlC {
 }
 
 impl Future for AsyncCtrlC {
-    type Output = ();
+    type Output = std::io::Result<()>;
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         if self.active.swap(false, Ordering::SeqCst) {
-            Poll::Ready(())
+            Poll::Ready(Ok(()))
         } else {
-            let mut waker_guard = self.waker.lock().expect("Failed to acquire lock on WAKER in poll");
+            let mut waker_guard = self.waker.lock().map_err(|e| std::io::Error::other(format!("{e}")))?;
             *waker_guard = Some(cx.waker().clone());
             Poll::Pending
         }
@@ -36,12 +36,12 @@ impl AsyncCtrlC {
     ///
     /// There should be at most one `AsyncCtrlC` instance in the whole program. The
     /// second call to `AsyncCtrlC::new()` would return an error.
-    pub fn new<F>(mut user_handler: F) -> Result<Self, Error>
+    pub fn new<F>(mut user_handler: F) -> std::io::Result<Self>
     where
         F: FnMut() -> bool + 'static + Send,
     {
         if INSTANCE_CREATED.swap(true, Ordering::SeqCst) {
-            return Err(Error::MultipleHandlers);
+            return Err(Error::MultipleHandlers.into());
         }
 
         let waker: Arc<Mutex<Option<Waker>>> = Arc::new(Mutex::new(None));
@@ -54,9 +54,10 @@ impl AsyncCtrlC {
             let handled = user_handler();
             if handled {
                 active_clone.store(true, Ordering::SeqCst);
-                let mut waker_guard = waker_clone.lock().expect("Failed to acquire lock on WAKER in new");
-                if let Some(waker) = waker_guard.take() {
-                    waker.wake();
+                if let Ok(mut waker_guard) = waker_clone.lock() {
+                    if let Some(waker) = waker_guard.take() {
+                        waker.wake();
+                    }
                 }
             }
             handled

@@ -43,9 +43,25 @@ fn main() {
 
 ### Asynchronous support
 
-This library now supports asynchronous operation using either the tokio runtimes.
+This library now supports asynchronous operation. You can use the `async` feature, it very simple:
 
-Selecting the tokio is done using feature flags (e.g. --no-default-features --features tokio)
+```rust
+#[cfg(all(feature = "async", feature = "tokio"))]
+#[tokio::main(flavor = "current_thread")]
+async fn main() {
+    let ctrlc = ctrlc2::AsyncCtrlC::new(move || {
+        println!("Ctrl-C received!");
+        true
+    })
+    .expect("cannot create Ctrl+C handler");
+
+    println!("Waiting for Ctrl-C...");
+    ctrlc.await.unwrap();
+    println!("Got it! Exiting...");
+}
+```
+
+You can alse select the tokio is done using feature flags (e.g. --no-default-features --features tokio)
 
 ```rust
 #[cfg(feature = "tokio")]
@@ -62,24 +78,6 @@ async fn main() {
 
     println!("Waiting for Ctrl-C...");
     rx.recv().await.expect("Could not receive from channel.");
-    println!("Got it! Exiting...");
-}
-```
-
-or using the `async` feature, it even more simple:
-
-```rust
-#[cfg(all(feature = "async", feature = "tokio"))]
-#[tokio::main(flavor = "current_thread")]
-async fn main() {
-    let ctrlc = ctrlc2::AsyncCtrlC::new(move || {
-        println!("Ctrl-C received!");
-        true
-    })
-    .expect("cannot create Ctrl+C handler");
-
-    println!("Waiting for Ctrl-C...");
-    ctrlc.await;
     println!("Got it! Exiting...");
 }
 ```

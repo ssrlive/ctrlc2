@@ -37,7 +37,7 @@ async fn async_main() {
     .expect("cannot create Ctrl+C handler");
 
     println!("Waiting for Ctrl-C...");
-    ctrlc.await;
+    ctrlc.await.unwrap();
     println!(" ");
     println!("Got it! Exiting...");
 }
