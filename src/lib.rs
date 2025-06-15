@@ -72,6 +72,9 @@ static INIT_LOCK: Mutex<()> = Mutex::new(());
 /// Starts a new dedicated signal handling thread. Should only be called once,
 /// typically at the start of your program.
 ///
+/// The `user_handler` function is customizable and the return boolean value
+/// is indicating whether the user agreed terminate the program or not.
+///
 /// # Example
 /// ```no_run
 /// ctrlc2::set_handler(|| {println!("Hello world!"); true}).expect("Error setting Ctrl-C handler");
@@ -103,6 +106,9 @@ where
 }
 
 /// The same as ctrlc2::set_handler but errors if a handler already exists for the signal(s).
+///
+/// The `user_handler` function is customizable and the return boolean value
+/// is indicating whether the user agreed terminate the program or not.
 ///
 /// # Errors
 /// Will return an error if another handler exists or if a system error occurred while setting the

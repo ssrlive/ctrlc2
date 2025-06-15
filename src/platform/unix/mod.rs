@@ -22,6 +22,7 @@ extern "C" fn os_handler(_: nix::libc::c_int) {
     // Assuming this always succeeds. Can't really handle errors in any meaningful way.
 
     if let Some((_, fd1)) = PIPE.get() {
+        log::debug!("Ctrl-C event received, writing to pipe");
         if let Err(e) = unistd::write(fd1, &[0u8]) {
             log::error!("Failed to write to pipe in os_handler: {e}");
         }
@@ -82,6 +83,7 @@ pub unsafe fn init_os_handler(overwrite: bool) -> Result<(), nix::Error> {
 
     let sigint_old = unsafe { signal::sigaction(signal::Signal::SIGINT, &new_action) }?;
     if !overwrite && sigint_old.handler() != signal::SigHandler::SigDfl {
+        log::warn!("SIGINT handler already set, not overwriting");
         if let Err(err) = unsafe { signal::sigaction(signal::Signal::SIGINT, &sigint_old) } {
             log::error!("Failed to restore SIGINT handler: {err}");
         }
@@ -93,6 +95,7 @@ pub unsafe fn init_os_handler(overwrite: bool) -> Result<(), nix::Error> {
         let sigterm_old = match unsafe { signal::sigaction(signal::Signal::SIGTERM, &new_action) } {
             Ok(old) => old,
             Err(e) => {
+                log::warn!("Failed to set SIGTERM handler: {e}");
                 if let Err(err) = unsafe { signal::sigaction(signal::Signal::SIGINT, &sigint_old) } {
                     log::error!("Failed to restore SIGINT handler: {err}");
                 }
@@ -100,6 +103,7 @@ pub unsafe fn init_os_handler(overwrite: bool) -> Result<(), nix::Error> {
             }
         };
         if !overwrite && sigterm_old.handler() != signal::SigHandler::SigDfl {
+            log::warn!("SIGTERM handler already set, not overwriting");
             if let Err(err) = unsafe { signal::sigaction(signal::Signal::SIGINT, &sigint_old) } {
                 log::error!("Failed to restore SIGINT handler: {err}");
             }
@@ -111,6 +115,7 @@ pub unsafe fn init_os_handler(overwrite: bool) -> Result<(), nix::Error> {
         let sighup_old = match unsafe { signal::sigaction(signal::Signal::SIGHUP, &new_action) } {
             Ok(old) => old,
             Err(e) => {
+                log::warn!("Failed to set SIGHUP handler: {e}");
                 if let Err(err) = unsafe { signal::sigaction(signal::Signal::SIGINT, &sigint_old) } {
                     log::error!("Failed to restore SIGINT handler: {err}");
                 }
@@ -121,6 +126,7 @@ pub unsafe fn init_os_handler(overwrite: bool) -> Result<(), nix::Error> {
             }
         };
         if !overwrite && sighup_old.handler() != signal::SigHandler::SigDfl {
+            log::warn!("SIGHUP handler is already set, not overwriting it");
             if let Err(err) = unsafe { signal::sigaction(signal::Signal::SIGINT, &sigint_old) } {
                 log::error!("Failed to restore SIGINT handler: {err}");
             }

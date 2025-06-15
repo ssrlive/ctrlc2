@@ -8,7 +8,7 @@
 // according to those terms.
 
 use windows_sys::Win32::Foundation::{CloseHandle, FALSE, HANDLE, TRUE, WAIT_FAILED, WAIT_OBJECT_0};
-use windows_sys::Win32::System::Console::SetConsoleCtrlHandler;
+use windows_sys::Win32::System::Console::{CTRL_BREAK_EVENT, CTRL_C_EVENT, SetConsoleCtrlHandler};
 use windows_sys::Win32::System::Threading::{CreateSemaphoreA, INFINITE, ReleaseSemaphore, WaitForSingleObject};
 use windows_sys::core::BOOL;
 
@@ -21,7 +21,18 @@ pub type Signal = u32;
 const MAX_SEM_COUNT: i32 = 255;
 static mut SEMAPHORE: HANDLE = 0 as HANDLE;
 
-unsafe extern "system" fn os_handler(_: u32) -> BOOL {
+unsafe extern "system" fn os_handler(ctrl_type: u32) -> BOOL {
+    match ctrl_type {
+        CTRL_C_EVENT => {
+            log::debug!("Ctrl-C event received");
+        }
+        CTRL_BREAK_EVENT => {
+            log::debug!("Ctrl-Break event received");
+        }
+        _ => {
+            log::debug!("Unknown control event received: {ctrl_type}");
+        }
+    }
     // Assuming this always succeeds. Can't really handle errors in any meaningful way.
     unsafe { ReleaseSemaphore(SEMAPHORE, 1, std::ptr::null_mut()) };
     TRUE
@@ -39,15 +50,20 @@ unsafe extern "system" fn os_handler(_: u32) -> BOOL {
 pub unsafe fn init_os_handler(_overwrite: bool) -> Result<(), Error> {
     unsafe { SEMAPHORE = CreateSemaphoreA(std::ptr::null_mut(), 0, MAX_SEM_COUNT, std::ptr::null()) };
     if unsafe { SEMAPHORE.is_null() } {
-        return Err(std::io::Error::last_os_error());
+        let err = std::io::Error::last_os_error();
+        log::error!("Failed to create semaphore: {err}");
+        return Err(err);
     }
 
     if unsafe { SetConsoleCtrlHandler(Some(os_handler), TRUE) } == FALSE {
         let e = std::io::Error::last_os_error();
         unsafe { CloseHandle(SEMAPHORE) };
         unsafe { SEMAPHORE = 0 as HANDLE };
+        log::error!("Failed to set console control handler: {e}");
         return Err(e);
     }
+
+    log::debug!("OS signal handler initialized successfully");
 
     Ok(())
 }

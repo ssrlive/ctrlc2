@@ -39,6 +39,7 @@ impl AsyncCtrlC {
     ///
     /// There should be at most one `AsyncCtrlC` instance in the whole program. The
     /// second call to `AsyncCtrlC::new()` would return an error.
+    ///
     /// The `user_handler` function is customizable and the return boolean value
     /// is indicating whether the user agreed terminate the program or not.
     pub fn new<F>(mut user_handler: F) -> std::io::Result<Self>
