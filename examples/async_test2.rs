@@ -27,9 +27,11 @@ async fn async_main() {
         let count = running.fetch_add(1, std::sync::atomic::Ordering::SeqCst) + 1;
         println!("Ctrl-C pressed {} time(s)", count);
         if count < args.count_of_ctrl_c {
+            println!(" ");
             println!("Press Ctrl-C {} more time(s) to exit", args.count_of_ctrl_c - count);
             false // Continue handling Ctrl-C
         } else {
+            println!(" ");
             println!("Exiting...");
             true // Stop handling Ctrl-C
         }
@@ -38,7 +40,6 @@ async fn async_main() {
 
     println!("Waiting for Ctrl-C...");
     ctrlc.await.unwrap();
-    println!(" ");
     println!("Got it! Exiting...");
 }
 

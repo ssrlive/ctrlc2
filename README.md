@@ -25,19 +25,16 @@ ctrlc2 = "3.5"
 then, in `main.rs`
 
 ```rust
-use std::sync::mpsc::channel;
-use ctrlc2;
-
 fn main() {
-    let (tx, rx) = channel();
-    
-    let handle = ctrlc2::set_handler(move || {tx.send(()).expect("Could not send signal on channel."); true})
-        .expect("Error setting Ctrl-C handler");
-    
+    let handle = ctrlc2::set_handler(move || {
+        println!(" ");
+        println!("Ctrl-C received, ready to exiting...");
+        true
+    })
+    .unwrap();
     println!("Waiting for Ctrl-C...");
-    rx.recv().expect("Could not receive from channel.");
-    println!("Got it! Exiting..."); 
     handle.join().unwrap();
+    println!("Got it! Exiting...");
 }
 ```
 

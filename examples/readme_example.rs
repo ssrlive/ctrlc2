@@ -7,19 +7,14 @@
 // notice may not be copied, modified, or distributed except
 // according to those terms.
 
-use std::sync::mpsc::channel;
-
 fn main() {
-    let (tx, rx) = channel();
-
     let handle = ctrlc2::set_handler(move || {
-        tx.send(()).expect("Could not send signal on channel.");
+        println!(" ");
+        println!("Ctrl-C received, ready to exiting...");
         true
     })
     .expect("Error setting Ctrl-C handler");
-
     println!("Waiting for Ctrl-C...");
-    rx.recv().expect("Could not receive from channel.");
+    handle.join().expect("Error joining Ctrl-C handler thread");
     println!("Got it! Exiting...");
-    handle.join().unwrap();
 }

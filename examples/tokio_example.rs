@@ -14,13 +14,13 @@ async fn main() {
 
     #[allow(deprecated)]
     ctrlc2::set_async_handler(async move {
+        println!(" ");
         tx.send(()).await.expect("ctrlc2 send signal failed");
     })
     .await;
 
     println!("Waiting for Ctrl-C...");
     rx.recv().await.expect("Could not receive from channel.");
-    println!(" ");
     println!("Got it! Exiting...");
 }
 
