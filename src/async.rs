@@ -19,7 +19,7 @@ pub struct AsyncCtrlC {
 impl Future for AsyncCtrlC {
     type Output = std::io::Result<()>;
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        if self.active.swap(false, Ordering::SeqCst) {
+        if self.active.load(Ordering::SeqCst) {
             Poll::Ready(Ok(()))
         } else {
             let mut waker_guard = self
@@ -46,9 +46,10 @@ impl AsyncCtrlC {
     where
         F: FnMut() -> bool + 'static + Send,
     {
-        if INSTANCE_CREATED.swap(true, Ordering::SeqCst) {
+        if INSTANCE_CREATED.load(Ordering::SeqCst) {
             return Err(Error::MultipleHandlers.into());
         }
+        INSTANCE_CREATED.store(true, Ordering::SeqCst);
 
         let waker: Arc<Mutex<Option<Waker>>> = Arc::new(Mutex::new(None));
         let active = Arc::new(AtomicBool::new(false));
