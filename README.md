@@ -19,7 +19,7 @@ In `cargo.toml`:
 
 ```toml
 [dependencies]
-ctrlc2 = "3.5"
+ctrlc2 = "3.7"
 ```
 
 then, in `main.rs`

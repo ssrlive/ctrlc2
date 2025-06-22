@@ -1,7 +1,7 @@
 [package]
 authors = ["Antti Keränen <detegr@gmail.com>", "@ssrlive"]
 name = "ctrlc2"
-version = "3.6.9"
+version = "3.7.0"
 description = "Easy Ctrl-C handler version 2 for Rust projects"
 documentation = "https://docs.rs/ctrlc2"
 homepage = "https://github.com/ssrlive/ctrlc2"
