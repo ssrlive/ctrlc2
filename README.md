@@ -24,8 +24,8 @@ ctrlc2 = "3.5"
 
 then, in `main.rs`
 
-```rust
-fn main() {
+```rust, no_run
+{
     let handle = ctrlc2::set_handler(move || {
         println!(" ");
         println!("Ctrl-C received, ready to exiting...");
@@ -42,12 +42,12 @@ fn main() {
 
 This library now supports asynchronous operation. You can use the `async` feature, it very simple:
 
-```rust
+```rust, no_run
 #[cfg(all(feature = "async", feature = "tokio"))]
 #[tokio::main(flavor = "current_thread")]
 async fn main() {
     let ctrlc = ctrlc2::AsyncCtrlC::new(move || {
-        println!("Ctrl-C received!");
+        println!("Ctrl-C received! Ready to exiting...");
         true
     })
     .expect("cannot create Ctrl+C handler");
@@ -56,11 +56,16 @@ async fn main() {
     ctrlc.await.unwrap();
     println!("Got it! Exiting...");
 }
+
+#[cfg(not(all(feature = "async", feature = "tokio")))]
+fn main() {
+    println!("This example requires the `async` and `tokio` features to be enabled.");
+}
 ```
 
-You can alse select the tokio is done using feature flags (e.g. --no-default-features --features tokio)
+You can alse select the tokio runtime using feature flags (e.g. --no-default-features --features tokio)
 
-```rust
+```rust, no_run
 #[cfg(feature = "tokio")]
 #[cfg_attr(feature = "tokio", tokio::main(flavor = "current_thread"))]
 async fn main() {
@@ -77,6 +82,11 @@ async fn main() {
     rx.recv().await.expect("Could not receive from channel.");
     println!("Got it! Exiting...");
 }
+
+#[cfg(not(feature = "tokio"))]
+fn main() {
+    println!("This example requires the `tokio` features to be enabled.");
+}
 ```
 
 #### Try the example yourself
@@ -88,8 +98,10 @@ Add CtrlC to Cargo.toml using `termination` feature and CtrlC will handle SIGINT
 ## License
 
 Licensed under either of
- * Apache License, Version 2.0 ([LICENSE-APACHE](LICENSE-APACHE) or http://www.apache.org/licenses/LICENSE-2.0)
- * MIT license ([LICENSE-MIT](LICENSE-MIT) or http://opensource.org/licenses/MIT)
+
+* Apache License, Version 2.0 ([LICENSE-APACHE](LICENSE-APACHE) or [APACHE](http://www.apache.org/licenses/LICENSE-2.0))
+* MIT license ([LICENSE-MIT](LICENSE-MIT) or [MIT](http://opensource.org/licenses/MIT))
+
 at your option.
 
 ### Contribution

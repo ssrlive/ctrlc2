@@ -7,48 +7,7 @@
 // notice may not be copied, modified, or distributed except
 // according to those terms.
 
-#![warn(missing_docs)]
-
-//! Cross platform handling of Ctrl-C signals.
-//!
-//! [HandlerRoutine]:https://msdn.microsoft.com/en-us/library/windows/desktop/ms683242.aspx
-//!
-//! [set_handler()](fn.set_handler.html) allows setting a handler closure which is executed on
-//! `Ctrl+C`. On Unix, this corresponds to a `SIGINT` signal. On windows, `Ctrl+C` corresponds to
-//! [`CTRL_C_EVENT`][HandlerRoutine] or [`CTRL_BREAK_EVENT`][HandlerRoutine].
-//!
-//! Setting a handler will start a new dedicated signal handling thread where we
-//! execute the handler each time we receive a `Ctrl+C` signal. There can only be
-//! one handler, you would typically set one at the start of your program.
-//!
-//! # Example
-//! ```no_run
-//! # #[allow(clippy::needless_doctest_main)]
-//! use std::sync::atomic::{AtomicBool, Ordering};
-//! use std::sync::Arc;
-//!
-//! fn main() {
-//!     let running = Arc::new(AtomicBool::new(true));
-//!     let r = running.clone();
-//!
-//!     let handle = ctrlc2::set_handler(move || {
-//!         r.store(false, Ordering::SeqCst);
-//!         true
-//!     }).expect("Error setting Ctrl-C handler");
-//!
-//!     println!("Waiting for Ctrl-C...");
-//!     while running.load(Ordering::SeqCst) {}
-//!     println!("Got it! Exiting...");
-//!     handle.join().unwrap();
-//! }
-//! ```
-//!
-//! # Handling SIGTERM and SIGHUP
-//! Handling of `SIGTERM and SIGHUP` can be enabled with `termination` feature. If this is enabled,
-//! the handler specified by `set_handler()` will be executed for `SIGINT`, `SIGTERM` and `SIGHUP`.
-//!
-
-#![macro_use]
+#![doc = include_str!("../README.md")]
 
 mod error;
 mod platform;
