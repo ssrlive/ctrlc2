@@ -32,7 +32,7 @@ fn test_set_handler() {
 
     match ctrlc2::set_handler(|| true) {
         Err(ctrlc2::Error::MultipleHandlers) => {}
-        ret => panic!("{:?}", ret),
+        ret => panic!("{ret:?}"),
     }
 }
 

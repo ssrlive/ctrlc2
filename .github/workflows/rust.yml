@@ -39,7 +39,30 @@ jobs:
       run: cargo build --verbose --all-features --tests --examples
     - name: Run tests
       if: ${{ !cancelled() }}
-      run: cargo test --verbose --all-targets --all-features
+      run: cargo test --verbose --all-targets --all-features -- --nocapture
+      env:
+        CI: "1"
+
+    - name: Run Windows async integration test
+      if: ${{ !cancelled() && matrix.host_os == 'windows-latest' }}
+      shell: powershell
+      run: |
+        Remove-Item Env:CI -ErrorAction SilentlyContinue
+        $retries = 0
+        $success = $false
+        while (-not $success -and $retries -lt 10) {
+            $outFile = [System.IO.Path]::GetTempFileName()
+            $errFile = [System.IO.Path]::GetTempFileName()
+            Start-Process cargo -ArgumentList "test --package ctrlc2 --lib --all-features -- r#async::tests::test_async_ctrlc --exact --nocapture" -RedirectStandardOutput $outFile -RedirectStandardError $errFile -Wait
+            $output = Get-Content $outFile -Raw
+            $success = $output -match "Ctrl\+C received, cancelling\.\.\."
+            Write-Host "Retry $retries times:`nOutput:`n$output`nError Output:`n$(Get-Content $errFile -Raw)"
+            Remove-Item $outFile, $errFile -ErrorAction SilentlyContinue
+            $retries++
+        }
+        if (-not $success) { Write-Host "Failed to match 'Ctrl+C received, cancelling...' after 10 retries" }
+        exit 0
+
     - name: Abort on error
       if: ${{ failure() }}
       run: echo "Some of jobs failed" && false

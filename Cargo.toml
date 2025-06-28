@@ -50,6 +50,8 @@ windows-sys = { version = "0.60", features = [
 clap = { version = "4", features = ["derive"] }
 futures = "0.3"
 signal-hook = "0.3"
+tokio = { version = "1", features = ["rt-multi-thread", "time"] }
+tokio-util = { version = "0.7" }
 
 [target.'cfg(windows)'.dev-dependencies]
 windows-sys = { version = "0.60", features = [

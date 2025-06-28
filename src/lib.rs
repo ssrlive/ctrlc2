@@ -158,7 +158,7 @@ where
             Ok::<(), std::io::Error>(())
         };
         if let Err(err) = block.await {
-            eprintln!("Critical system error while waiting for Ctrl-C: {}", err);
+            eprintln!("Critical system error while waiting for Ctrl-C: {err}");
         }
     })
 }

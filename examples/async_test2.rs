@@ -25,7 +25,7 @@ async fn async_main() {
 
     let ctrlc = ctrlc2::AsyncCtrlC::new(move || {
         let count = running.fetch_add(1, std::sync::atomic::Ordering::SeqCst) + 1;
-        println!("Ctrl-C pressed {} time(s)", count);
+        println!("Ctrl-C pressed {count} time(s)");
         if count < args.count_of_ctrl_c {
             println!(" ");
             println!("Press Ctrl-C {} more time(s) to exit", args.count_of_ctrl_c - count);

@@ -72,3 +72,61 @@ impl AsyncCtrlC {
         Ok(AsyncCtrlC { waker, active })
     }
 }
+
+#[cfg(test)]
+mod tests {
+
+    #[tokio::test]
+    async fn test_async_ctrlc() {
+        if cfg!(windows) && std::env::var("CI").is_ok() {
+            println!("Skipping test_async_ctrlc in CI environment on Windows");
+            return;
+        }
+
+        let cancel_token = tokio_util::sync::CancellationToken::new();
+        let cancel_token_clone = cancel_token.clone();
+
+        let ctrlc_future = crate::AsyncCtrlC::new(move || {
+            println!("Ctrl+C received, cancelling...");
+            cancel_token_clone.cancel();
+            true
+        })
+        .unwrap();
+
+        // Simulate a Ctrl+C signal after a short delay
+        let fire_signal = tokio::spawn(async move {
+            tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
+
+            // Send Ctrl+C signal
+            #[cfg(unix)]
+            nix::sys::signal::kill(nix::unistd::Pid::this(), nix::sys::signal::Signal::SIGINT).unwrap();
+
+            #[cfg(windows)]
+            {
+                // Since Windows API `GenerateConsoleCtrlEvent` will cause all parallel test processes exit,
+                // so we can't run this code on CI environment.
+                // If you want to test it, run it on your local Windows machine.
+                use windows_sys::Win32::System::Console::{CTRL_C_EVENT, GenerateConsoleCtrlEvent};
+                unsafe { GenerateConsoleCtrlEvent(CTRL_C_EVENT, 0) };
+            }
+
+            println!("Ctrl+C signal sent");
+        });
+
+        let main_worker = tokio::spawn(async move {
+            // Here goes the main logic of your application and wait for cancellation token
+            println!("[Main worker] started, till the cancellation token is received...");
+            cancel_token.cancelled().await;
+            println!("[Main worker] cancelled, exiting...");
+        });
+
+        // Wait for the future to complete
+        // This will block until the Ctrl+C signal is received
+        ctrlc_future.await.unwrap();
+
+        fire_signal.await.unwrap();
+        main_worker.await.unwrap();
+
+        println!("Test completed successfully.");
+    }
+}
