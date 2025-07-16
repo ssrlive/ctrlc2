@@ -24,16 +24,12 @@ impl Future for AsyncCtrlC {
             Poll::Ready(Ok(()))
         } else {
             // set the waker so that it can be woken up when the signal is triggered
-            let mut waker_guard = self
-                .waker
-                .lock()
-                .map_err(|e| std::io::Error::other(format!("Failed to acquire lock: {e}")))?;
-            *waker_guard = Some(cx.waker().clone());
+            {
+                let mut waker_guard = self.waker.lock().map_err(|e| std::io::Error::other(format!("acquire lock: {e}")))?;
+                *waker_guard = Some(cx.waker().clone());
+            }
 
-            // release the lock and check the status again to avoid race conditions
-            drop(waker_guard);
-
-            // check again if it was activated while setting the waker
+            // check the status again to avoid race conditions if it was activated while setting the waker
             if self.active.load(Ordering::SeqCst) {
                 Poll::Ready(Ok(()))
             } else {
