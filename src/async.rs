@@ -19,15 +19,26 @@ pub struct AsyncCtrlC {
 impl Future for AsyncCtrlC {
     type Output = std::io::Result<()>;
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+        // check if the signal has already been activated
         if self.active.load(Ordering::SeqCst) {
             Poll::Ready(Ok(()))
         } else {
+            // set the waker so that it can be woken up when the signal is triggered
             let mut waker_guard = self
                 .waker
                 .lock()
                 .map_err(|e| std::io::Error::other(format!("Failed to acquire lock: {e}")))?;
             *waker_guard = Some(cx.waker().clone());
-            Poll::Pending
+
+            // release the lock and check the status again to avoid race conditions
+            drop(waker_guard);
+
+            // check again if it was activated while setting the waker
+            if self.active.load(Ordering::SeqCst) {
+                Poll::Ready(Ok(()))
+            } else {
+                Poll::Pending
+            }
         }
     }
 }
@@ -70,6 +81,14 @@ impl AsyncCtrlC {
             handled
         })?;
         Ok(AsyncCtrlC { waker, active })
+    }
+}
+
+impl Drop for AsyncCtrlC {
+    fn drop(&mut self) {
+        // When AsyncCtrlC is dropped, reset the instance created flag
+        // This allows new instances to be created
+        INSTANCE_CREATED.store(false, Ordering::SeqCst);
     }
 }
 
