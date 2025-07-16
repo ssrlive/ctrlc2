@@ -81,7 +81,7 @@ impl AsyncCtrlC {
                     }
                 }
                 if !woken {
-                    log::warn!("AsyncCtrlC: waker was not set, cannot wake up");
+                    log::debug!("AsyncCtrlC: waker was not set, cannot wake up");
                 }
             }
             handled
