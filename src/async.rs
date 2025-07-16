@@ -21,6 +21,7 @@ impl Future for AsyncCtrlC {
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         // check if the signal has already been activated
         if self.active.load(Ordering::SeqCst) {
+            log::trace!("AsyncCtrlC: signal already activated, returning ready");
             Poll::Ready(Ok(()))
         } else {
             // set the waker so that it can be woken up when the signal is triggered
@@ -31,8 +32,10 @@ impl Future for AsyncCtrlC {
 
             // check the status again to avoid race conditions if it was activated while setting the waker
             if self.active.load(Ordering::SeqCst) {
+                log::trace!("AsyncCtrlC: signal activated while setting waker, returning ready");
                 Poll::Ready(Ok(()))
             } else {
+                log::trace!("AsyncCtrlC: signal not activated, returning pending");
                 Poll::Pending
             }
         }
@@ -67,11 +70,18 @@ impl AsyncCtrlC {
         set_handler(move || {
             let handled = user_handler();
             if handled {
+                log::trace!("AsyncCtrlC: user handler returned true, waking up waker");
                 active_clone.store(true, Ordering::SeqCst);
+                let mut woken = false;
                 if let Ok(mut waker_guard) = waker_clone.lock() {
                     if let Some(waker) = waker_guard.take() {
                         waker.wake();
+                        log::trace!("AsyncCtrlC: waker has been woken up");
+                        woken = true;
                     }
+                }
+                if !woken {
+                    log::warn!("AsyncCtrlC: waker was not set, cannot wake up");
                 }
             }
             handled
