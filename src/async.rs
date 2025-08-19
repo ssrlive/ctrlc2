@@ -73,12 +73,12 @@ impl AsyncCtrlC {
                 log::trace!("AsyncCtrlC: user handler returned true, waking up waker");
                 active_clone.store(true, Ordering::SeqCst);
                 let mut woken = false;
-                if let Ok(mut waker_guard) = waker_clone.lock() {
-                    if let Some(waker) = waker_guard.take() {
-                        waker.wake();
-                        log::trace!("AsyncCtrlC: waker has been woken up");
-                        woken = true;
-                    }
+                if let Ok(mut waker_guard) = waker_clone.lock()
+                    && let Some(waker) = waker_guard.take()
+                {
+                    waker.wake();
+                    log::trace!("AsyncCtrlC: waker has been woken up");
+                    woken = true;
                 }
                 if !woken {
                     log::debug!("AsyncCtrlC: waker was not set, cannot wake up");
