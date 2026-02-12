@@ -82,7 +82,7 @@ pub unsafe fn init_os_handler(overwrite: bool) -> Result<(), nix::Error> {
     let new_action = signal::SigAction::new(handler, signal::SaFlags::empty(), signal::SigSet::empty());
 
     let sigint_old = unsafe { signal::sigaction(signal::Signal::SIGINT, &new_action) }?;
-    if !overwrite && sigint_old.handler() != signal::SigHandler::SigDfl {
+    if !overwrite && !matches!(sigint_old.handler(), signal::SigHandler::SigDfl) {
         log::warn!("SIGINT handler already set, not overwriting");
         if let Err(err) = unsafe { signal::sigaction(signal::Signal::SIGINT, &sigint_old) } {
             log::error!("Failed to restore SIGINT handler: {err}");
@@ -102,7 +102,7 @@ pub unsafe fn init_os_handler(overwrite: bool) -> Result<(), nix::Error> {
                 return Err(e);
             }
         };
-        if !overwrite && sigterm_old.handler() != signal::SigHandler::SigDfl {
+        if !overwrite && !matches!(sigterm_old.handler(), signal::SigHandler::SigDfl) {
             log::warn!("SIGTERM handler already set, not overwriting");
             if let Err(err) = unsafe { signal::sigaction(signal::Signal::SIGINT, &sigint_old) } {
                 log::error!("Failed to restore SIGINT handler: {err}");
@@ -125,7 +125,7 @@ pub unsafe fn init_os_handler(overwrite: bool) -> Result<(), nix::Error> {
                 return Err(e);
             }
         };
-        if !overwrite && sighup_old.handler() != signal::SigHandler::SigDfl {
+        if !overwrite && !matches!(sighup_old.handler(), signal::SigHandler::SigDfl) {
             log::warn!("SIGHUP handler is already set, not overwriting it");
             if let Err(err) = unsafe { signal::sigaction(signal::Signal::SIGINT, &sigint_old) } {
                 log::error!("Failed to restore SIGINT handler: {err}");
