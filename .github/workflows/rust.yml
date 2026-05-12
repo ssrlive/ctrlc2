@@ -63,10 +63,6 @@ jobs:
         if (-not $success) { Write-Host "Failed to match 'Ctrl+C received, cancelling...' after 10 retries" }
         exit 0
 
-    - name: Abort on error
-      if: ${{ failure() }}
-      run: echo "Some of jobs failed" && false
-
   semver:
     name: Check semver
     strategy:
@@ -80,6 +76,3 @@ jobs:
       - name: Check semver
         if: ${{ !cancelled() }}
         uses: obi1kenobi/cargo-semver-checks-action@v2
-      - name: Abort on error
-        if: ${{ failure() }}
-        run: echo "Semver check failed" && false

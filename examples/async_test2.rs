@@ -1,10 +1,12 @@
-#[cfg(all(feature = "tokio", feature = "async"))]
-#[cfg_attr(feature = "tokio", tokio::main(flavor = "current_thread"))]
+/*
+#[cfg(feature = "async")]
+#[tokio::main(flavor = "current_thread")]
 async fn main() {
     async_main().await;
 }
+*/
 
-#[cfg(all(not(feature = "tokio"), feature = "async"))]
+#[cfg(feature = "async")]
 fn main() {
     futures::executor::block_on(async_main());
 }

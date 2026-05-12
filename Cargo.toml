@@ -1,7 +1,7 @@
 [package]
 authors = ["Antti Keränen <detegr@gmail.com>", "@ssrlive"]
 name = "ctrlc2"
-version = "3.7.3"
+version = "4.0.0"
 description = "Easy Ctrl-C handler version 2 for Rust projects"
 documentation = "https://docs.rs/ctrlc2"
 homepage = "https://github.com/ssrlive/ctrlc2"
@@ -18,19 +18,12 @@ all-features = true
 
 [features]
 termination = []
-tokio = ["dep:tokio"]
 async = []
 
-# default = ["termination", "tokio", "async"]
+# default = ["termination", "async"]
 
 [dependencies]
 log = "0.4"
-tokio = { version = "1", features = [
-    "macros",
-    "rt",
-    "sync",
-    "signal",
-], optional = true }
 
 [target.'cfg(unix)'.dependencies]
 nix = { version = "0.31", default-features = false, features = [
@@ -50,7 +43,12 @@ windows-sys = { version = "0.61", features = [
 clap = { version = "4", features = ["derive"] }
 futures = "0.3"
 signal-hook = "0.4"
-tokio = { version = "1", features = ["rt-multi-thread", "time"] }
+tokio = { version = "1", features = [
+    "rt-multi-thread",
+    "time",
+    "macros",
+    "rt",
+] }
 tokio-util = { version = "0.7" }
 
 [target.'cfg(windows)'.dev-dependencies]

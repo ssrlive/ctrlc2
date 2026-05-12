@@ -43,7 +43,7 @@ then, in `main.rs`
 This library now supports asynchronous operation. You can use the `async` feature, it very simple:
 
 ```rust, no_run
-#[cfg(all(feature = "async", feature = "tokio"))]
+#[cfg(feature = "async")]
 #[tokio::main(flavor = "current_thread")]
 async fn main() {
     let ctrlc = ctrlc2::AsyncCtrlC::new(move || {
@@ -57,35 +57,9 @@ async fn main() {
     println!("Got it! Exiting...");
 }
 
-#[cfg(not(all(feature = "async", feature = "tokio")))]
+#[cfg(not(feature = "async"))]
 fn main() {
-    println!("This example requires the `async` and `tokio` features to be enabled.");
-}
-```
-
-You can alse select the tokio runtime using feature flags (e.g. --no-default-features --features tokio)
-
-```rust, no_run
-#[cfg(feature = "tokio")]
-#[cfg_attr(feature = "tokio", tokio::main(flavor = "current_thread"))]
-async fn main() {
-    let (tx, mut rx) = tokio::sync::mpsc::channel::<()>(1);
-
-    ctrlc2::set_async_handler(async move {
-        tx.send(())
-            .await
-            .expect("Could not send signal on channel.");
-    })
-    .await;
-
-    println!("Waiting for Ctrl-C...");
-    rx.recv().await.expect("Could not receive from channel.");
-    println!("Got it! Exiting...");
-}
-
-#[cfg(not(feature = "tokio"))]
-fn main() {
-    println!("This example requires the `tokio` features to be enabled.");
+    println!("This example requires the `async` feature to be enabled.");
 }
 ```
 
