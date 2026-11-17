@@ -26,7 +26,7 @@ async = []
 log = "0.4"
 
 [target.'cfg(unix)'.dependencies]
-nix = { version = "0.31", default-features = false, features = [
+nix = { version = "0.32", default-features = false, features = [
     "fs",
     "signal",
 ] }
