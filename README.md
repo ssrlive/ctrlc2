@@ -19,7 +19,7 @@ In `cargo.toml`:
 
 ```toml
 [dependencies]
-ctrlc2 = "3.7"
+ctrlc2 = "4"
 ```
 
 then, in `main.rs`
@@ -64,17 +64,19 @@ fn main() {
 ```
 
 #### Try the example yourself
+
 `cargo build --examples && target/debug/examples/readme_example`
 
 ## Handling SIGTERM and SIGHUP
+
 Add CtrlC to Cargo.toml using `termination` feature and CtrlC will handle SIGINT, SIGTERM and SIGHUP.
 
 ## License
 
 Licensed under either of
 
-* Apache License, Version 2.0 ([LICENSE-APACHE](LICENSE-APACHE) or [APACHE](http://www.apache.org/licenses/LICENSE-2.0))
-* MIT license ([LICENSE-MIT](LICENSE-MIT) or [MIT](http://opensource.org/licenses/MIT))
+- Apache License, Version 2.0 ([LICENSE-APACHE](LICENSE-APACHE) or [APACHE](http://www.apache.org/licenses/LICENSE-2.0))
+- MIT license ([LICENSE-MIT](LICENSE-MIT) or [MIT](http://opensource.org/licenses/MIT))
 
 at your option.
 
