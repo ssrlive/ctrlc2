@@ -26,10 +26,10 @@ async = []
 log = "0.4.35"
 
 [target.'cfg(unix)'.dependencies]
-nix = { version = "0.32.0", default-features = false, features = [
-    "fs",
-    "signal",
-] }
+nix = { version = "0.32.0", default-features = false, features = ["signal"] }
+
+[target.'cfg(target_vendor = "apple")'.dependencies]
+dispatch2 = { version = "0.3", default-features = false, features = ["std"] }
 
 [target.'cfg(windows)'.dependencies]
 windows-sys = { version = "0.61.2", features = [

@@ -21,47 +21,47 @@ jobs:
     runs-on: ${{ matrix.host_os }}
 
     steps:
-    - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-    - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@stable
 
-    - name: check
-      if: ${{ !cancelled() }}
-      run: cargo check
-    - name: rustfmt
-      if: ${{ !cancelled() }}
-      run: cargo fmt --all -- --check
-    - name: clippy
-      if: ${{ !cancelled() }}
-      run: cargo clippy --all-targets --all-features -- -D warnings
-    - name: Build
-      if: ${{ !cancelled() }}
-      run: cargo build --verbose --all-features --tests --examples
-    - name: Run tests
-      if: ${{ !cancelled() }}
-      run: cargo test --verbose --all-targets --all-features -- --nocapture
-      env:
-        CI: "1"
+      - name: check
+        if: ${{ !cancelled() }}
+        run: cargo check
+      - name: rustfmt
+        if: ${{ !cancelled() }}
+        run: cargo fmt --all -- --check
+      - name: clippy
+        if: ${{ !cancelled() }}
+        run: cargo clippy --all-targets --all-features -- -D warnings
+      - name: Build
+        if: ${{ !cancelled() }}
+        run: cargo build --verbose --all-features --tests --examples
+      - name: Run tests
+        if: ${{ !cancelled() }}
+        run: cargo test --verbose --all-targets --all-features -- --nocapture
+        env:
+          CI: "1"
 
-    - name: Run Windows async integration test
-      if: ${{ !cancelled() && matrix.host_os == 'windows-latest' }}
-      shell: powershell
-      run: |
-        Remove-Item Env:CI -ErrorAction SilentlyContinue
-        $retries = 0
-        $success = $false
-        while (-not $success -and $retries -lt 10) {
-            $outFile = [System.IO.Path]::GetTempFileName()
-            $errFile = [System.IO.Path]::GetTempFileName()
-            Start-Process cargo -ArgumentList "test --package ctrlc2 --lib --all-features -- r#async::tests::test_async_ctrlc --exact --nocapture" -RedirectStandardOutput $outFile -RedirectStandardError $errFile -Wait
-            $output = Get-Content $outFile -Raw
-            $success = $output -match "Ctrl\+C received, cancelling\.\.\."
-            Write-Host "Retry $retries times:`nOutput:`n$output`nError Output:`n$(Get-Content $errFile -Raw)"
-            Remove-Item $outFile, $errFile -ErrorAction SilentlyContinue
-            $retries++
-        }
-        if (-not $success) { Write-Host "Failed to match 'Ctrl+C received, cancelling...' after 10 retries" }
-        exit 0
+      - name: Run Windows async integration test
+        if: ${{ !cancelled() && matrix.host_os == 'windows-latest' }}
+        shell: powershell
+        run: |
+          Remove-Item Env:CI -ErrorAction SilentlyContinue
+          $retries = 0
+          $success = $false
+          while (-not $success -and $retries -lt 10) {
+              $outFile = [System.IO.Path]::GetTempFileName()
+              $errFile = [System.IO.Path]::GetTempFileName()
+              Start-Process cargo -ArgumentList "test --package ctrlc2 --lib --all-features -- r#async::tests::test_async_ctrlc --exact --nocapture" -RedirectStandardOutput $outFile -RedirectStandardError $errFile -Wait
+              $output = Get-Content $outFile -Raw
+              $success = $output -match "Ctrl\+C received, cancelling\.\.\."
+              Write-Host "Retry $retries times:`nOutput:`n$output`nError Output:`n$(Get-Content $errFile -Raw)"
+              Remove-Item $outFile, $errFile -ErrorAction SilentlyContinue
+              $retries++
+          }
+          if (-not $success) { Write-Host "Failed to match 'Ctrl+C received, cancelling...' after 10 retries" }
+          exit 0
 
   semver:
     name: Check semver

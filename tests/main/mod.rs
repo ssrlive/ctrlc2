@@ -13,22 +13,22 @@ use harness::{platform, run_harness};
 
 use std::sync::{
     Arc,
-    atomic::{AtomicBool, Ordering},
+    atomic::{AtomicUsize, Ordering},
 };
 
 fn test_set_handler() {
-    let flag = Arc::new(AtomicBool::new(false));
-    let flag_handler = Arc::clone(&flag);
-    ctrlc2::set_handler(move || {
-        flag_handler.store(true, Ordering::SeqCst);
-        true
-    })
-    .unwrap();
+    let signal_count = Arc::new(AtomicUsize::new(0));
+    let signal_count_handler = Arc::clone(&signal_count);
+    ctrlc2::set_handler(move || signal_count_handler.fetch_add(1, Ordering::SeqCst) == 1).unwrap();
 
-    unsafe { platform::raise_ctrl_c() };
-
-    std::thread::sleep(std::time::Duration::from_millis(100));
-    assert!(flag.load(Ordering::SeqCst));
+    for expected in 1..=2 {
+        unsafe { platform::raise_ctrl_c() };
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
+        while signal_count.load(Ordering::SeqCst) < expected && std::time::Instant::now() < deadline {
+            std::thread::sleep(std::time::Duration::from_millis(1));
+        }
+        assert_eq!(signal_count.load(Ordering::SeqCst), expected);
+    }
 
     match ctrlc2::set_handler(|| true) {
         Err(ctrlc2::Error::MultipleHandlers) => {}
